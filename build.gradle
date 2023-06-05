@@ -1,0 +1,144 @@
+plugins {
+  id 'eclipse'
+  id 'fabric-loom' version '1.2-SNAPSHOT'
+  id 'com.modrinth.minotaur' version '2.+'
+  id 'co.uzzu.dotenv.gradle' version '2.+'
+}
+
+archivesBaseName = project.archives_base_name
+version = project.mod_version
+group = project.maven_group
+
+loom {
+  runs {
+    // This adds a new gradle task that runs the datagen API: "gradlew runDatagenClient"
+    datagenClient {
+      inherit client
+      name "Data Generation"
+      vmArg "-Dfabric-api.datagen"
+      vmArg "-Dfabric-api.datagen.output-dir=${file("src/main/generated")}"
+      vmArg "-Dfabric-api.datagen.modid=${modid}"
+      
+      runDir "build/datagen"
+    }
+  }
+}
+
+repositories {
+  exclusiveContent {
+    forRepository {
+      maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+      }
+    }
+    filter {
+      includeGroup "maven.modrinth"
+    }
+  }
+  maven { url 'https://jitpack.io' }
+}
+
+modrinth {
+  token = env.MODRINTH_TOKEN.orNull()
+  projectId = project.modid
+  versionNumber = project.mod_version
+  versionType = project.version_type
+  versionName = "${project.name} v${project.mod_version}"
+  gameVersions = [ '1.19.4' ]
+  uploadFile = remapJar
+  debugMode = true
+}
+
+dependencies {
+  // To change the versions see the gradle.properties file
+  minecraft "com.mojang:minecraft:${project.minecraft_version}"
+  mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+  modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+  
+  // Fabric API. This is technically optional, but you probably want it anyway.
+  modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+}
+
+def copyBack = tasks.register('copyBackMeta', Copy) {
+  from layout.buildDirectory.file('resources/main/fabric.mod.json')
+  into 'src/main/resources'
+  
+  from layout.buildDirectory.file("resources/main/${modid}.mixins.json")
+  into 'src/main/resources'
+}
+
+processResources {
+  def props = new HashMap<String, String>()
+  project.properties.each {
+    if(project.getProviders().gradleProperty(it.key).isPresent() && !it.key.startsWith("org.gradle.")) {
+      props.put(it.key, it.value.toString())
+    }
+  }
+  
+  inputs.properties props
+  
+  filesMatching(Arrays.asList(
+    "template.fabric.mod.json".toString(),
+    "template.mixins.json".toString()
+  )) {
+    expand props
+  }
+  
+  doFirst {
+    project.delete(
+      files(
+        'src/main/resources/fabric.mod.json',
+        "src/main/resources/${modid}.mixins.json"
+      )
+    )
+  }
+  
+  eachFile {
+    if(it.getName().contentEquals('template.fabric.mod.json')) {
+      it.setName('fabric.mod.json')
+    }else if(it.getName().contentEquals('template.mixins.json')) {
+      it.setName("${modid}.mixins.json")
+    }
+  }
+  
+  doLast {
+    println "Properties being passed to Fabric:"
+    println props
+    
+    def propertiesObj = new Properties()
+    propertiesObj.putAll(props)
+    
+    def file = new File(sourceSets.main.output.resourcesDir, "info-${modid}.properties")
+    propertiesObj.store(new FileOutputStream(file), "Auto-generated from gradle.properties")
+    println "Done!"
+  }
+  
+  finalizedBy copyBack
+}
+
+sourceSets {
+  main {
+    resources {
+      srcDirs += [
+        'src/main/generated'
+      ]
+    }
+  }
+}
+
+tasks.withType(JavaCompile).configureEach {
+  it.options.release = 17
+}
+
+java {
+  withSourcesJar()
+}
+
+compileJava.options.encoding = 'UTF-8'
+
+jar {
+  from("LICENSE") {
+    rename { "${it}_${project.archivesBaseName}"}
+  }
+}

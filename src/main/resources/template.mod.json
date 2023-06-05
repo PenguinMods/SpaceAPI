@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "{modid}",
+  "version": "${version}",
+  "name": "SpaceAPI",
+  "description": "SPAAACCCCCE!",
+  "authors": [
+    "BlockyPenguin"
+  ],
+  "contact": {
+    "website": "https://mods.blockypenguin.com/{modid}",
+    "repo": "https://github.com/ThatBlockyPenguin/SpaceAPI"
+  },
+  "license": "All-Rights-Reserved",
+  "icon": "assets/{modid}/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "com.blockypenguin.{modid}.launch.Client"
+    ],
+    "main": [
+      "com.blockypenguin.{modid}.launch.Main"
+    ],
+    "fabric-datagen": [
+      "com.blockypenguin.{modid}.launch.Datagen"
+    ]
+  },
+  "mixins": [
+    "{modid}.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
